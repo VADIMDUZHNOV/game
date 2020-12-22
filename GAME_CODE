@@ -1,0 +1,299 @@
+import pygame
+import random
+
+pygame.init()
+
+#тут происходят настройки игры
+
+
+display_width = 1000
+display_height = 1000
+
+display = pygame.display.set_mode((display_width, display_height))
+pygame.display.set_caption('Harder than U think')
+
+start_game = False
+game_over = 0
+score = 0
+
+
+pygame.mixer.music.load('Martin Garrix - Poison .wav')
+pygame.mixer.music.set_volume(0.2)
+pygame.mixer.music.play(-1)
+
+
+font = pygame.font.SysFont('Unispace', 60)
+text_colour = (255,255,255)
+
+
+#переменные для блоков
+cols = 10
+rows = 8
+
+
+#фон
+background = pygame.image.load('111.jpg')
+
+
+#блоки
+a = random.randint(1, 255)
+b = random.randint(1, 255)
+c = random.randint(1, 255)
+
+d = random.randint(1, 255)
+e = random.randint(1, 255)
+f = random.randint(1, 255)
+
+
+
+block_colour = (255, 221, 255)
+
+block_colour2 = (255, 118, 255)
+
+
+def draw_text(text, font, text_colour, x, y):
+    img = font.render(text, True, text_colour)
+    display.blit(img, (x, y))
+
+
+#классы
+
+#стена
+class wall():
+    def __init__(self):
+        self.reset()
+
+    def create_wall(self):
+        self.blocks = []  #массив блоков
+        #сбрасываем список строк блока
+        block_individual = []
+        #перебираем каждый столбец в строке
+        for row in range(rows):
+            block_row = []
+            # определяем позицию каждого блока
+            for col in range(cols):
+                block_x = col * self.width
+                block_y = row * self.height
+                Rect = pygame.Rect(block_x, block_y, self.width, self.height)
+
+                if row < 2:
+                    strength = 2
+                elif row < 4:
+                    strength = 1
+                elif row <6:
+                    strength = 1
+                    #создадим лист
+                block_individual = [Rect, strength]
+                #добавим каждый блок к строке
+                block_row.append(block_individual)
+            #добавим строку к полному списку блоков
+            self.blocks.append(block_row)
+    def draw_wall(self):
+        for row in self.blocks:
+            for block in row:
+             #разукрасим блоки
+             if block[1] == 1:
+                    block_col = block_colour
+             if block[1] == 1:
+                    block_col = block_colour
+             if block[1] == 2:
+                    block_col = block_colour2
+             pygame.draw.rect(display, block_col, block[0])
+             pygame.draw.rect(display, (0,0,0) , block[0], 3)
+    def reset(self):
+        self.width = display_width // cols
+        self.height = 40
+
+
+#создадим стенку
+wall = wall()
+wall.create_wall()
+
+#платформа
+class platform():
+    def __init__(self):
+        self.reset()
+
+    def move(self):
+
+        self.direction = 0
+        key = pygame.key.get_pressed()
+        if key[pygame.K_a] and self.rect.left > 0:
+            self.rect.x -= self.speed
+            self.direction = -1
+        if key[pygame.K_d] and self.rect.right < display_width:
+            self.rect.x += self.speed
+            self.direction = 1
+
+
+
+    def draw(self):
+        pygame.draw.rect(display, (238, 130, 238), self.rect)
+        pygame.draw.rect(display, (50, 205, 50), self.rect, 2)
+
+
+    def reset(self):
+        self.height = 20
+        self.width = int(display_width / cols)
+        self.x = int((display_width / 2) - (self.width / 2))
+        self.y = display_height - (self.height * 2)
+        self.speed = 2.5
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.direction = 0
+
+
+p_platform = platform()
+p_platform.draw()
+p_platform.move()
+
+
+#мяч
+
+
+class Ball():
+    def __init__(self,x ,y):
+        self.reset(x, y)
+
+
+    def move(self):
+
+
+        thresh = 5
+
+        #проверим столкновения с блоками
+        wall_destroyed = 1
+        row_total = 0
+        for row in wall.blocks:
+            item_total = 0
+            for item in row:
+
+                if self.rect.colliderect(item[0]):
+                   #проверка на столкновения справа и слева
+                   if abs(self.rect.left - item[0].right) < thresh and self.speed_x < 0:
+                       self.speed_x *= -1
+                   if abs(self.rect.right - item[0].left) < thresh and self.speed_x > 0:
+                       self.speed_x *= -1
+                   # проверка на столкновения сверху и снизу
+                   if abs(self.rect.bottom - item[0].top) < thresh and self.speed_y > 0:
+                       self.speed_y *= -1
+                   if abs(self.rect.top - item[0].bottom) < thresh and self.speed_y < 0:
+                       self.speed_y *= -1
+
+                   if wall.blocks[row_total][item_total][1] > 1:
+                      wall.blocks[row_total][item_total][1] -= 1
+                   else:
+                     wall.blocks[row_total][item_total][0] = (0, 0, 0, 0)
+
+                if wall.blocks[row_total][item_total][0] != (0, 0, 0, 0) :
+                    wall_destroyed = 0
+
+                item_total += 1
+            row_total += 1
+            #проверим разрушен ли блок
+            if wall_destroyed == 1:
+                self.game_over = 1
+
+
+        #проверим столкновения с границами игрового поля
+        if self.rect.left < 0 or self.rect.right > display_width:
+            self.speed_x *= -1
+        if self.rect.top < 0:
+            self.speed_y *= -1
+        if self.rect.bottom > display_height:
+            self.game_over = -1
+
+
+        #проверим на столкновения с плотформой
+        if self.rect.colliderect(p_platform):
+            if abs(self.rect.bottom - p_platform.rect.top) < thresh and self.speed_y > 0:
+                self.speed_x += p_platform.direction
+                self.speed_y *= -1
+                if self.speed_x > self.speed_max:
+                    self.speed_x = self.speed_max
+                elif self.speed_x < 0 and  self.speed_x < self.speed_max:
+                      self.speed_x = -self.speed_max
+            else:
+                self.speed_x *= -1
+
+        self.rect.x += self.speed_x
+        self.rect.y += self.speed_y
+
+
+        return self.game_over
+
+
+
+
+
+
+    def draw(self):
+        pygame.draw.circle(display, (238, 130, 238), (self.rect.x + self.ball_rad, self.rect.y + self.ball_rad), self.ball_rad)
+        pygame.draw.circle(display, (238, 130, 238), (self.rect.x + self.ball_rad, self.rect.y + self.ball_rad), self.ball_rad, 2)
+
+
+    def reset(self, x, y):
+        self.ball_rad = 10
+        self.x = x - self.ball_rad
+        self.y = y
+        self.rect = pygame.Rect(self.x, self.y, self.ball_rad, self.ball_rad)
+        self.game_over = 0
+        self.speed_max = 2
+        self.speed_x = 1
+        self.speed_y = -1
+
+
+#создание мяча
+P_Ball = Ball(p_platform.x + (p_platform.width // 2), p_platform.y - p_platform.height)
+
+game = True
+while game:
+
+
+
+        display.blit(background,(0,0))
+        if not start_game:
+            if game_over == 0:
+                draw_text('HERE WE GO!', font, text_colour, 380, 700)
+            elif game_over == 1:
+                draw_text(('YOU WON THIS GAME, BUT...'), font, text_colour, 500, 500)
+            elif game_over == -1:
+                draw_text(('YOU LOSE'), font, text_colour, 420, 500)
+                draw_text(('Once again?'), font, text_colour, 400, 600)
+
+
+
+        #разукрасим все наши штучки
+        wall.draw_wall()
+        P_Ball.draw()
+        p_platform.draw()
+
+        if start_game:
+
+
+          #движение
+
+          p_platform.move()
+
+          #движение
+
+          game_over = P_Ball.move()
+          if game_over != 0:
+              start_game = False
+
+        #рестарт и выход
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+
+                pygame.quit()
+            if event.type == pygame.MOUSEBUTTONDOWN and start_game == False:
+                start_game = True
+                P_Ball.reset(p_platform.x + (p_platform.width // 2), p_platform.y - p_platform.height)
+                p_platform.reset()
+                wall.create_wall()
+
+
+
+        pygame.display.update()
+
+pygame.quit()
